@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 import urllib.parse
+import re
 
 app = Flask(__name__)
 
@@ -15,21 +16,36 @@ def resolve():
         response = requests.get(url, allow_redirects=True)
         final_url = response.url
 
-        # Step 2: Check for deep_link_value in final URL
+        # Step 2: Extract deep_link_value
         parsed = urllib.parse.urlparse(final_url)
         query = urllib.parse.parse_qs(parsed.query)
         deep_link = query.get('deep_link_value', [None])[0]
 
         if deep_link:
             decoded = urllib.parse.unquote(deep_link)
-            # Step 3: If deep link contains privateServerLinkCode, return it
-            if "privateServerLinkCode=" in decoded:
-                return jsonify({'final_url': decoded})
 
-            # Step 4: Otherwise, follow the deep link manually
-            if decoded.startswith("roblox://"):
-                # Roblox deep links can't be followed via HTTP, so simulate
-                return jsonify({'deep_link': decoded, 'note': 'Roblox deep link detected. Cannot follow roblox:// links via HTTP.'})
+            # Step 3: If decoded deep link is a Roblox web URL, follow it
+            if decoded.startswith("https://www.roblox.com"):
+                follow = requests.get(decoded, allow_redirects=True)
+                final = follow.url
+
+                # Step 4: Extract privateServerLinkCode
+                match = re.search(r'privateServerLinkCode=([a-zA-Z0-9]+)', final)
+                if match:
+                    return jsonify({
+                        'privateServerLinkCode': match.group(1),
+                        'resolved_url': final
+                    })
+                else:
+                    return jsonify({
+                        'resolved_url': final,
+                        'note': 'No privateServerLinkCode found in final URL'
+                    })
+
+            return jsonify({
+                'decoded_deep_link': decoded,
+                'note': 'Deep link is not a Roblox web URL'
+            })
 
         return jsonify({'final_url': final_url})
     except Exception as e:
