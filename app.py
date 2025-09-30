@@ -16,7 +16,7 @@ def resolve():
         response = requests.get(url, allow_redirects=True)
         final_url = response.url
 
-        # Step 2: Extract deep_link_value
+        # Step 2: Extract deep_link_value from final URL
         parsed = urllib.parse.urlparse(final_url)
         query = urllib.parse.parse_qs(parsed.query)
         deep_link = query.get('deep_link_value', [None])[0]
@@ -29,18 +29,17 @@ def resolve():
                 follow = requests.get(decoded, allow_redirects=True)
                 final = follow.url
 
-                # Step 4: Extract privateServerLinkCode
-                match = re.search(r'privateServerLinkCode=([a-zA-Z0-9]+)', final)
+                # Step 4: Extract privateServerLinkCode from final URL
+                match = re.search(r'https://www\.roblox\.com/games/\d+/[^?]+\?privateServerLinkCode=[a-zA-Z0-9]+', final)
                 if match:
                     return jsonify({
-                        'privateServerLinkCode': match.group(1),
-                        'resolved_url': final
+                        'resolved_url': match.group(0)
                     })
-                else:
-                    return jsonify({
-                        'resolved_url': final,
-                        'note': 'No privateServerLinkCode found in final URL'
-                    })
+
+                return jsonify({
+                    'final_url': final,
+                    'note': 'No privateServerLinkCode URL found'
+                })
 
             return jsonify({
                 'decoded_deep_link': decoded,
